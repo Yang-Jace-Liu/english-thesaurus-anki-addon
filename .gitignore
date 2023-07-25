@@ -337,5 +337,6 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm+all,python,macos,linux,windows
 
-# Projects
+# Project
 meta.json
+user_files/cache.sqlite3
