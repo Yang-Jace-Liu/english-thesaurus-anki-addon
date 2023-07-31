@@ -1,4 +1,6 @@
 {
   "API_NINJAS_API_KEY": "API_KEY",
-  "DEBUG_MODE": false
+  "DEBUG_MODE": false,
+  "CARD_TYPE": "COCA",
+  "CARD_WORD_FIELD_NAME": "Word"
 }
