@@ -1,4 +1,7 @@
 {
-  "API_NINJAS_API_KEY": "API_KEY",
-  "DEBUG_MODE": false
+  "ApiNinjasApiKey": "API_KEY",
+  "DebugMode": false,
+  "CardType": "COCA",
+  "CardWordFieldName": "Word",
+  "ThesaurusSource": "ApiNinjas"
 }
