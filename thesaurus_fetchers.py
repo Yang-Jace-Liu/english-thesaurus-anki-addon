@@ -3,6 +3,7 @@ import enum
 import http.client
 import json
 from abc import ABC
+from typing import List
 
 from .configs import Config
 
@@ -12,22 +13,22 @@ class ThesaurusSource(enum.Enum):
 
 
 class ThesaurusResult:
-    def __init__(self, synonyms, antonyms, lookup_time, source):
+    def __init__(self, synonyms: List[str], antonyms: List[str], lookup_time: datetime.datetime, source: ThesaurusSource):
         self._synonyms = synonyms
         self._antonyms = antonyms
         self._lookup_time = lookup_time
         self._source = source
 
     @property
-    def synonyms(self) -> str:
+    def synonyms(self) -> List[str]:
         return self._synonyms
 
     @property
-    def antonyms(self) -> str:
+    def antonyms(self) -> List[str]:
         return self._antonyms
 
     @property
-    def lookup_time(self) -> str:
+    def lookup_time(self) -> datetime.datetime:
         return self._lookup_time
 
     @property

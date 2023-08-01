@@ -1,6 +1,3 @@
-import datetime
-import http.client
-import json
 import traceback
 from typing import List
 
@@ -9,7 +6,7 @@ import anki.notes
 from aqt import mw, gui_hooks
 
 from .configs import Config
-from .database import init_cache_database
+from .thesaurus_fetchers import ThesaurusFetcherIntf, ApiNinjasThesaurusFetcher
 from .worker import WorkerThread
 
 # TODO: Use direct reference to the config
@@ -18,31 +15,11 @@ from .worker import WorkerThread
 worker_thread: WorkerThread = None
 
 
-def lookup_thesaurus(word: str):
-    try:
-        synonyms, antonyms = get_thesaurus_from_cache_database(word)
-        if synonyms is None or antonyms is None:
-            if Config.DEBUG_MODE:
-                print(f"CACHE MISS: {word}")
-            lookup_time = datetime.datetime.now()
-            connection = http.client.HTTPSConnection("api.api-ninjas.com", timeout=3)
-            connection.request('GET', f'/v1/thesaurus?word={word}', headers={'X-Api-Key': API_KEY})
-            response = connection.getresponse().read().decode()
-            response_json = json.loads(response)
-            synonyms = list(filter(lambda x: len(x) > 0, response_json['synonyms']))
-            antonyms = list(filter(lambda x: len(x) > 0, response_json['antonyms']))
-            save_thesaurus_to_cache_database(word, synonyms, antonyms, lookup_time)
-        else:
-            if Config.DEBUG_MODE:
-                print(f"CACHE HIT: {word}")
-        return synonyms[:5], antonyms[:5]
-    except Exception:
-        if Config.DEBUG_MODE:
-            traceback.print_exc()
-        return [], []
-
-
 def inject_thesaurus(synonyms: List[str], antonyms: List[str], text: str) -> str:
+    if synonyms is not None:
+        synonyms = synonyms[:5]
+    if antonyms is not None:
+        antonyms = antonyms[:5]
     try:
         anchor = '<div id="back">'
         ind = text.find(anchor)
@@ -70,7 +47,7 @@ def add_thesaurus_trigger(text: str, card: anki.cards.Card, type: str) -> str:
         word = card.note()[Config.CARD_WORD_FIELD_NAME]
         if Config.DEBUG_MODE:
             print(f"Start looking up thesaurus for word: {word}")
-        synonyms, antonyms = lookup_thesaurus(word)
+        synonyms, antonyms = worker_thread.lookup_word(word)
         return inject_thesaurus(synonyms, antonyms, text)
     return text
 
@@ -78,15 +55,23 @@ def add_thesaurus_trigger(text: str, card: anki.cards.Card, type: str) -> str:
 def load_config():
     config = mw.addonManager.getConfig(__name__)
 
-    Config.API_NINJAS_API_KEY = config['API_NINJAS_API_KEY']
-    Config.DEBUG_MODE = config["DEBUG_MODE"]
-    Config.CARD_WORD_FIELD_NAME = config["CARD_WORD_FIELD_NAME"]
-    Config.CARD_TYPE = config["CARD_TYPE"]
+    Config.API_NINJAS_API_KEY = config['ApiNinjasApiKey']
+    Config.DEBUG_MODE = config["DebugMode"]
+    Config.CARD_WORD_FIELD_NAME = config["CardWordFieldName"]
+    Config.CARD_TYPE = config["CardType"]
+    Config.THESAURUS_SOURCE = config["ThesaurusSource"]
+
+
+def init_thesaurus_fetcher() -> ThesaurusFetcherIntf:
+    if Config.THESAURUS_SOURCE == "ApiNinjas":
+        return ApiNinjasThesaurusFetcher()
+    else:
+        raise RuntimeError(f"Cannot find thesaurus source {Config.THESAURUS_SOURCE}")
 
 
 def init_worker_thread():
     global worker_thread
-    worker_thread = WorkerThread()
+    worker_thread = WorkerThread(init_thesaurus_fetcher())
     worker_thread.setDaemon(True)
     worker_thread.start()
 
@@ -96,13 +81,11 @@ def startup_trigger():
     for card_id in card_ids:
         card = mw.col.get_card(card_id)
         word = card.note()[Config.CARD_WORD_FIELD_NAME]
-        worker_thread.lookup_word(word)
+        worker_thread.schedule_lookup_word(word)
 
 
 load_config()
 
-if Config.DEBUG_MODE:
-    init_cache_database()
 init_worker_thread()
 gui_hooks.profile_did_open.append(startup_trigger)
 gui_hooks.card_will_show.append(add_thesaurus_trigger)
