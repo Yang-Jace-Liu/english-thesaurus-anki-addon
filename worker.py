@@ -29,7 +29,7 @@ class WorkerThread(threading.Thread):
             word = await self.queue.get()
             asyncio.create_task(self._lookup_for_word(word))
 
-    async def _lookup_for_word(self, word: str) -> Tuple[List[str], List[str]]:
+    async def _lookup_for_word(self, word: str, prioritized: bool = False) -> Tuple[List[str], List[str]]:
         if Config.DEBUG_MODE:
             print(f"Start task for looking up work: {word}")
 
@@ -43,7 +43,8 @@ class WorkerThread(threading.Thread):
         else:
             if Config.DEBUG_MODE:
                 print(f"Cache Hit: {word}")
-        self.sem.release()
+        if not prioritized:
+            self.sem.release()
         return synonyms, antonyms
 
     def schedule_lookup_word(self, word: str):
@@ -55,5 +56,5 @@ class WorkerThread(threading.Thread):
         asyncio.run_coroutine_threadsafe(lookup_word_async(word), self.loop)
 
     def lookup_word(self, word: str):
-        future = asyncio.run_coroutine_threadsafe(self._lookup_for_word(word), self.loop)
+        future = asyncio.run_coroutine_threadsafe(self._lookup_for_word(word, prioritized=True), self.loop)
         return future.result()
